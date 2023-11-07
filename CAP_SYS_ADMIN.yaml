@@ -4,7 +4,7 @@ metadata:
   name: linux-cpb-demo
 spec:
   securityContext:
-    runAsUser: 3000
+    runAsUser: 0
   containers:
   - name: linux-cpb-cont
     image: supergiantkir/k8s-liveliness
