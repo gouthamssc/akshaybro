@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-cpb-demo
+spec:
+  securityContext:
+    runAsUser: 3000
+  containers:
+  - name: linux-cpb-cont
+    image: supergiantkir/k8s-liveliness
+    securityContext:
+      capabilities:
+        add: ["CAP_SYS_ADMIN"]
