@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld
+  labels:
+    app: helloworld
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: helloworld
+      labels:
+        app: helloworld
+    spec:
+      tolerations:
+        - key: kubernetes.io/os
+          operator: Equal
+          value: windows
+          effect: NoSchedule
+      nodeSelector:
+        "kubernetes.io/os": windows
+      containers:
+      - name: helloworld
+        image: mcr.microsoft.com/dotnet/framework/samples:aspnetapp
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+        ports:
+          - containerPort: 80
+  selector:
+    matchLabels:
+      app: helloworld
