@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-demo-disallowed
+  name: ingress-demo-disallowed-tls-optional
 spec:
   rules:
     - host: example-host.example.com
