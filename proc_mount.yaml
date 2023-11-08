@@ -5,7 +5,7 @@ metadata:
   labels:
     app: nginx-proc-mount
 spec:
-  containers:
+  ephemeralContainers:
   - name: nginx
     image: nginx
     securityContext:
