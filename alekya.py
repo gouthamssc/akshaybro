@@ -15,8 +15,9 @@ def setup_logging():
         handlers=[logging.StreamHandler(sys.stdout)]
     )
 
-def read_json(input_path: Path) -> List[Dict[str, Any]]:
-    """Reads a JSON or JSONL file and returns a list of dictionaries."""
+def read_json(input_path: Path, strict: bool = False):
+    """Reads a JSON or JSONL file and returns a tuple: (list of dicts, skipped_lines)."""
+    skipped_lines = 0
     try:
         with input_path.open('r', encoding='utf-8') as f:
             first_char = f.read(1)
@@ -26,10 +27,24 @@ def read_json(input_path: Path) -> List[Dict[str, Any]]:
                 data = json.load(f)
                 if not isinstance(data, list):
                     raise ValueError('JSON root must be a list')
-                return data
+                return data, skipped_lines
             else:
                 # JSON Lines (ndjson)
-                return [json.loads(line) for line in f if line.strip()]
+                result = []
+                for i, line in enumerate(f, 1):
+                    if not line.strip():
+                        continue
+                    try:
+                        result.append(json.loads(line))
+                    except Exception as e:
+                        msg = f"Malformed JSON on line {i}: {e}\nLine content: {line.strip()}"
+                        if strict:
+                            logging.error(msg)
+                            raise
+                        else:
+                            logging.warning(msg)
+                            skipped_lines += 1
+                return result, skipped_lines
     except Exception as e:
         logging.error(f"Failed to read JSON: {e}")
         raise
@@ -55,6 +70,7 @@ def main():
     parser.add_argument('input', type=Path, help='Input JSON or JSONL file')
     parser.add_argument('output', type=Path, help='Output file (.arrow or .parquet)')
     parser.add_argument('--format', choices=['arrow', 'parquet'], default=None, help='Output file format (arrow or parquet)')
+    parser.add_argument('--strict', action='store_true', help='Fail on first malformed JSON line (default: skip bad lines)')
     args = parser.parse_args()
 
     setup_logging()
@@ -71,12 +87,13 @@ def main():
             file_format = 'arrow'
 
     try:
-        data = read_json(args.input)
+        data, skipped_lines = read_json(args.input, strict=args.strict)
         write_pyarrow(data, args.output, file_format)
+        if skipped_lines > 0 and not args.strict:
+            logging.info(f"Skipped {skipped_lines} malformed line(s) during conversion.")
     except Exception as e:
         logging.error(f"Conversion failed: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':
     main()
-
