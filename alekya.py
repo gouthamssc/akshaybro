@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from typing import Any, List, Dict
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 
 def setup_logging():
@@ -73,20 +72,15 @@ def read_json(input_path: Path, strict: bool = False):
         logging.error(f"Failed to read JSON: {e}")
         raise
 
-def write_pyarrow(data: List[Dict[str, Any]], output_path: Path, file_format: str = 'arrow'):
+def write_arrow(data: List[Dict[str, Any]], output_path: Path):
     try:
         table = pa.Table.from_pylist(data)
-        if file_format == 'arrow':
-            with output_path.open('wb') as f:
-                with pa.RecordBatchFileWriter(f, table.schema) as writer:
-                    writer.write_table(table)
-        elif file_format == 'parquet':
-            pq.write_table(table, output_path)
-        else:
-            raise ValueError(f"Unsupported file format: {file_format}")
-        logging.info(f"Successfully wrote {file_format} file to {output_path}")
+        with output_path.open('wb') as f:
+            with pa.RecordBatchFileWriter(f, table.schema) as writer:
+                writer.write_table(table)
+        logging.info(f"Successfully wrote arrow file to {output_path}")
     except Exception as e:
-        logging.error(f"Failed to write {file_format} file: {e}")
+        logging.error(f"Failed to write arrow file: {e}")
         raise
 
 def normalize_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -103,10 +97,9 @@ def normalize_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return normalized
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert JSON/JSONL to PyArrow format.")
-    parser.add_argument('input', type=Path, help='Input JSON or JSONL file')
-    parser.add_argument('output', type=Path, help='Output file (.arrow or .parquet)')
-    parser.add_argument('--format', choices=['arrow', 'parquet'], default=None, help='Output file format (arrow or parquet)')
+    parser = argparse.ArgumentParser(description="Convert JSON/JSONL to Arrow format.")
+    parser.add_argument('input', type=Path, help='Input JSON, JSONL, or single JSON object file')
+    parser.add_argument('output', type=Path, help='Output Arrow file (.arrow)')
     parser.add_argument('--strict', action='store_true', help='Fail on first malformed JSON line (default: skip bad lines)')
     args = parser.parse_args()
 
@@ -116,17 +109,10 @@ def main():
         logging.error(f"Input file {args.input} does not exist.")
         sys.exit(1)
 
-    file_format = args.format
-    if not file_format:
-        if args.output.suffix == '.parquet':
-            file_format = 'parquet'
-        else:
-            file_format = 'arrow'
-
     try:
         data, skipped_lines = read_json(args.input, strict=args.strict)
         data = normalize_data(data)
-        write_pyarrow(data, args.output, file_format)
+        write_arrow(data, args.output)
         if skipped_lines > 0 and not args.strict:
             logging.info(f"Skipped {skipped_lines} malformed line(s) during conversion.")
     except Exception as e:
